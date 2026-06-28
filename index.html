@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>東京を、建築で走る。｜東京マラソン×名建築コース</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root{ --ink:#161616; --muted:#888; --line:#ececec; --accent:#e11d2c; --bg:#fff; }
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  body{ margin:0; color:var(--ink); background:var(--bg);
+    font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.7; }
+  img{ max-width:100%; display:block; }
+  a{ color:inherit; }
+  .wrap{ max-width:1180px; margin:0 auto; padding:0 28px; }
+  .eyebrow{ font-size:12px; letter-spacing:.28em; color:var(--muted); text-transform:uppercase; margin:0 0 18px; }
+
+  /* HERO */
+  .hero{ min-height:100vh; display:flex; flex-direction:column; justify-content:center;
+    border-bottom:1px solid var(--line); position:relative; }
+  .hero .wrap{ width:100%; }
+  .hero h1{ font-size:clamp(40px,8vw,104px); line-height:1.04; margin:0; letter-spacing:-.01em; font-weight:800; }
+  .hero h1 .accent{ color:var(--accent); }
+  .hero .lead{ font-size:clamp(15px,1.6vw,19px); color:#444; margin:28px 0 0; max-width:640px; }
+  .hero .meta{ display:flex; gap:34px; margin-top:42px; flex-wrap:wrap; }
+  .hero .meta div span{ display:block; }
+  .hero .meta .k{ font-size:11px; letter-spacing:.16em; color:var(--muted); }
+  .hero .meta .v{ font-size:23px; font-weight:700; }
+  .scroll{ position:absolute; bottom:26px; left:50%; transform:translateX(-50%);
+    font-size:11px; letter-spacing:.2em; color:var(--muted); }
+
+  /* SECTION */
+  section{ padding:96px 0; border-bottom:1px solid var(--line); }
+  .h2{ font-size:clamp(24px,3vw,38px); font-weight:800; margin:0 0 22px; letter-spacing:-.01em; }
+  .concept p{ font-size:17px; color:#333; max-width:760px; margin:0 0 16px; }
+  .media-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:26px; }
+  .chip{ font-size:12px; border:1px solid var(--line); border-radius:30px; padding:7px 15px; color:#555; }
+
+  /* EXPLORE */
+  #explore{ padding:0; }
+  .explore-head{ padding:60px 0 30px; }
+  .explore-grid{ display:grid; grid-template-columns:minmax(360px,440px) 1fr; min-height:82vh; border-top:1px solid var(--line); }
+  .panel{ border-right:1px solid var(--line); padding:34px 30px; overflow-y:auto; }
+  #lp-map{ height:82vh; position:sticky; top:0; }
+
+  /* detail */
+  .photo{ width:100%; aspect-ratio:4/3; border-radius:8px; background:#f3f3f3; position:relative; overflow:hidden;
+    display:flex; align-items:flex-end; }
+  .photo .ph{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column;
+    color:#bcbcbc; gap:8px; background:
+      linear-gradient(135deg,#fafafa,#eee); }
+  .photo .ph b{ font-size:13px; color:#999; }
+  .photo .ph small{ font-size:11px; letter-spacing:.1em; }
+  .photo img{ width:100%; height:100%; object-fit:cover; }
+  .d-num{ display:inline-flex; width:30px; height:30px; border-radius:50%; background:var(--accent); color:#fff;
+    align-items:center; justify-content:center; font-weight:700; font-size:14px; }
+  .d-top{ display:flex; align-items:center; gap:12px; margin:22px 0 6px; }
+  .d-area{ font-size:12px; letter-spacing:.12em; color:var(--muted); }
+  .d-name{ font-size:26px; font-weight:800; margin:2px 0 4px; line-height:1.25; }
+  .d-arch{ font-size:14px; color:#444; }
+  .d-arch b{ color:var(--ink); }
+  .d-desc{ font-size:14.5px; color:#333; margin:18px 0 0; }
+  .d-links{ margin-top:20px; display:flex; gap:9px; flex-wrap:wrap; }
+  .d-links a{ font-size:12.5px; text-decoration:none; border:1px solid #ddd; border-radius:24px; padding:7px 14px; color:#222; transition:.15s; }
+  .d-links a:hover{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .back{ font-size:12px; color:var(--muted); cursor:pointer; border:none; background:none; padding:0; margin-bottom:14px; }
+  .back:hover{ color:var(--ink); }
+
+  /* overview list */
+  .ov-total{ font-size:46px; font-weight:800; letter-spacing:-.02em; }
+  .ov-total small{ font-size:16px; font-weight:600; }
+  .ov-sub{ color:var(--muted); font-size:13px; margin-bottom:26px; }
+  .clist{ list-style:none; margin:0; padding:0; }
+  .clist li{ display:flex; align-items:center; gap:13px; padding:13px 8px; border-top:1px solid var(--line); cursor:pointer; transition:.12s; }
+  .clist li:last-child{ border-bottom:1px solid var(--line); }
+  .clist li:hover{ background:#fafafa; padding-left:12px; }
+  .c-num{ flex:0 0 26px; width:26px; height:26px; border-radius:50%; background:#222; color:#fff;
+    font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .c-num.s{ background:#16a34a; } .c-num.g{ background:#111; }
+  .c-body{ flex:1; min-width:0; }
+  .c-name{ font-size:14.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .c-arch{ font-size:11.5px; color:var(--muted); }
+  .c-leg{ font-size:11px; color:#aaa; flex:0 0 auto; }
+
+  /* markers */
+  .mk{ width:28px; height:28px; border-radius:50%; background:#222; color:#fff; border:2px solid #fff;
+    display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700;
+    box-shadow:0 1px 4px rgba(0,0,0,.3); cursor:pointer; }
+  .mk.s{ background:#16a34a; } .mk.g{ background:#111; } .mk.on{ background:var(--accent); transform:scale(1.18); }
+
+  /* JOIN */
+  .join-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:24px; margin:30px 0 40px; }
+  .join-grid .k{ font-size:11px; letter-spacing:.14em; color:var(--muted); }
+  .join-grid .v{ font-size:21px; font-weight:700; margin-top:6px; }
+  .cta{ display:inline-block; background:var(--ink); color:#fff; text-decoration:none; padding:16px 34px;
+    border-radius:40px; font-size:15px; font-weight:600; }
+  .cta:hover{ background:var(--accent); }
+  .note2{ font-size:13px; color:var(--muted); margin-top:22px; }
+
+  footer{ padding:50px 0; color:var(--muted); font-size:12.5px; }
+  footer a{ color:var(--muted); }
+
+  @media(max-width:860px){
+    .explore-grid{ grid-template-columns:1fr; }
+    .panel{ border-right:none; }
+    #lp-map{ height:60vh; position:relative; order:-1; }
+    .join-grid{ grid-template-columns:repeat(2,1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Architecture × Tokyo Marathon</p>
+    <h1>東京を、<br><span class="accent">建築</span>で走る。</h1>
+    <p class="lead">東京マラソンのコースを辿りながら、現代日本を代表する名建築を巡る——
+      国立競技場から東京駅まで、約17.6kmの建築さんぽ。</p>
+    <div class="meta">
+      <div><span class="k">DISTANCE</span><span class="v">17.3 km</span></div>
+      <div><span class="k">SPOTS</span><span class="v">建築 9</span></div>
+      <div><span class="k">START → GOAL</span><span class="v">国立競技場 → 東京駅</span></div>
+    </div>
+  </div>
+  <div class="scroll">SCROLL ↓</div>
+</header>
+
+<!-- CONCEPT -->
+<section class="concept">
+  <div class="wrap">
+    <p class="eyebrow">Concept</p>
+    <h2 class="h2">走る。観る。読む。</h2>
+    <p>フルマラソンは難しくても、東京の街は名建築であふれています。東京マラソンのコースを参考に、
+      隈研吾・安藤忠雄・妹島和世・菊竹清訓・辰野金吾——時代を超えた建築家の作品を、自分の足で巡るコースをつくりました。</p>
+    <p>各スポットは、建築メディアの記事にリンク。歩きながら、その場で建築の背景を「読む」ことができます。</p>
+    <div class="media-row">
+      <span class="chip">📐 TECTURE MAG</span>
+      <span class="chip">📕 Casa Brutus</span>
+      <span class="chip">📘 Brutus</span>
+      <span class="chip">🎪 東京建築祭2026</span>
+    </div>
+  </div>
+</section>
+
+<!-- EXPLORE -->
+<section id="explore">
+  <div class="wrap explore-head">
+    <p class="eyebrow">The Course</p>
+    <h2 class="h2">コースを巡る</h2>
+    <p style="color:#555;max-width:680px;margin:0;">地図のピン、または一覧をクリックすると、左に建築の詳細が表示されます。</p>
+  </div>
+  <div class="explore-grid">
+    <div class="panel" id="panel"></div>
+    <div id="lp-map"></div>
+  </div>
+</section>
+
+<!-- JOIN -->
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Join</p>
+    <h2 class="h2">参加情報</h2>
+    <div class="join-grid">
+      <div><div class="k">DISTANCE</div><div class="v">約17.3km</div></div>
+      <div><div class="k">TIME</div><div class="v">約5〜6時間</div></div>
+      <div><div class="k">START</div><div class="v">国立競技場</div></div>
+      <div><div class="k">GOAL</div><div class="v">東京駅</div></div>
+    </div>
+    <a class="cta" href="#">参加に興味がある（準備中）</a>
+    <p class="note2">※ 開催日は調整中。東京建築祭2026（2026/5/16〜24）の特別公開期間に合わせる案もあります。</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    東京マラソン×名建築コース ／ 建築データ：TECTURE MAG・Casa Brutus・Brutus ほか<br>
+    <a href="map.html">▶ コースを編集する（計画マップ）</a>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="routeline.js"></script>
+<script>
+// 確定コース（順番）：[name, architect, year, area, leg(km from prev), lat, lng, desc, links, img]
+const C = [
+  ["国立競技場","隈研吾","2019","神宮外苑",0,35.6777,139.7146,
+   "47都道府県の杉材を軒庇にまとう「杜（もり）のスタジアム」。2020年東京大会のメイン会場であり、この建築さんぽのスタート地点。",
+   [["📐 TECTURE MAG","https://mag.tecture.jp/culture/20210721-34629/"],["📕 Casa Brutus","https://casabrutus.com/categories/architecture/109960"]],
+   "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/The_Japan_National_Stadium.jpg/1280px-The_Japan_National_Stadium.jpg"],
+  ["la kagu（ラカグ）","隈研吾","2014","神楽坂",4.22,35.7032,139.7378,
+   "新潮社の旧倉庫を隈研吾がリノベーション。神楽坂の街へと続く大きな木のデッキ階段が印象的な複合施設（現・AKOMEYA TOKYO in la kagu）。",
+   [["🏛 隈研吾建築都市設計事務所","https://kkaa.co.jp/project/la-kagu/"]],
+   "https://kkaa.co.jp/img/2015/03/12_8431.jpg"],
+  ["東京大学 ダイワユビキタス学術研究館","隈研吾","2014","本郷",3.08,35.7158,139.7620,
+   "本郷キャンパスの一角に建つ小さな研究棟。杉の薄板を重ねた繊細な木質ファサードが、歴史ある赤門エリアにそっと溶け込む。",
+   [],
+   "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Daiwa_Ubiquitous_Computing_Research_Building_%40_University_of_Tokyo_%2815055524610%29.jpg/1280px-Daiwa_Ubiquitous_Computing_Research_Building_%40_University_of_Tokyo_%2815055524610%29.jpg"],
+  ["国際子ども図書館","安藤忠雄＋日建設計","2002","上野",1.37,35.7185,139.7740,
+   "明治期のルネサンス様式建築（旧帝国図書館）に、安藤忠雄がガラスのボリュームを貫入させた増改修。新旧が静かに対話する。",
+   [],
+   "https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/2019_International_Library_of_Children%27s_Literature.jpg/1280px-2019_International_Library_of_Children%27s_Literature.jpg"],
+  ["国立西洋美術館","ル・コルビュジエ","1959","上野",0.45,35.7156,139.7757,
+   "ル・コルビュジエが設計した日本で唯一の建築であり、世界文化遺産。「無限成長美術館」の構想に基づく、らせん状に展開する展示空間をもつ。",
+   [["📐 TECTURE MAG","https://mag.tecture.jp/culture/20230704-92869/"],["🏛 公式サイト","https://www.nmwa.go.jp/jp/"]],
+   "https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Tokyo_National_Museum_of_Western_Art_seen_from_the_south.jpg/1280px-Tokyo_National_Museum_of_Western_Art_seen_from_the_south.jpg"],
+  ["浅草文化観光センター","隈研吾","2012","浅草",2.43,35.7106,139.7958,
+   "木造の「家」を縦に積み重ねたような8層の観光案内所。最上階の展望テラスから雷門・仲見世・スカイツリーを一望できる。",
+   [["📐 TECTURE MAG","https://mag.tecture.jp/product/20220113-49641/"]],
+   "https://upload.wikimedia.org/wikipedia/commons/f/f8/Asakusa_Culture_Tourist_Information_Center_at_night.jpg"],
+  ["すみだ北斎美術館","妹島和世＋SANAA","2016","両国",1.90,35.6962,139.7965,
+   "アルミパネルにスリットが走る、街に開かれた美術館。葛飾北斎ゆかりの地に建ち、どの方向からもアプローチできる。",
+   [],
+   "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/2018_Sumida_Hokusai_Museum_2.jpg/1280px-2018_Sumida_Hokusai_Museum_2.jpg"],
+  ["江戸東京博物館","菊竹清訓","1993","両国",0.27,35.6967,139.7937,
+   "高床式倉庫を思わせる巨大な構築物。2026年3月、OMA・重松象平の監修でリニューアルオープンした下町のランドマーク。",
+   [],
+   "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Edo-Tokyo_Museum_20170323.jpg/1280px-Edo-Tokyo_Museum_20170323.jpg"],
+  ["東京駅 丸の内駅舎","辰野金吾","1914","丸の内",3.54,35.6812,139.7671,
+   "赤レンガと白い花崗岩による重要文化財。東京マラソンのフィニッシュ地点でもある、この旅の終着点。",
+   [],
+   "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Tokyo-STA_Marunouchi-Entrance_2023.jpg/1280px-Tokyo-STA_Marunouchi-Entrance_2023.jpg"],
+];
+const TOTAL = (typeof ROUTE_KM!=="undefined") ? ROUTE_KM : "16.8";
+
+const map = L.map("lp-map",{zoomControl:false,scrollWheelZoom:false}).setView([35.695,139.768],12);
+L.control.zoom({position:"topright"}).addTo(map);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+  {attribution:"&copy; OpenStreetMap &copy; CARTO",subdomains:"abcd",maxZoom:19}).addTo(map);
+
+L.polyline((typeof ROUTE_LINE!=="undefined")?ROUTE_LINE:C.map(c=>[c[5],c[6]]),
+  {color:"#e11d2c",weight:4,opacity:.9}).addTo(map);
+
+const mkIcon=(i,on)=>L.divIcon({className:"",iconSize:[28,28],iconAnchor:[14,14],
+  html:`<div class="mk ${i===0?'s':''} ${i===C.length-1?'g':''} ${on?'on':''}">${i===0?'S':(i===C.length-1?'G':i+1)}</div>`});
+const mks=C.map((c,i)=>L.marker([c[5],c[6]],{icon:mkIcon(i,false)}).addTo(map).on("click",()=>showDetail(i)));
+map.fitBounds(C.map(c=>[c[5],c[6]]),{padding:[50,50]});
+
+const panel=document.getElementById("panel");
+
+function photoBlock(c){
+  if(c[9]) return `<div class="photo"><img src="${c[9]}" alt="${c[0]}" onerror="this.style.display='none';this.parentElement.insertAdjacentHTML('beforeend','<div class=ph><b>${c[1]}</b><small>PHOTO</small></div>')"></div>`;
+  return `<div class="photo"><div class="ph"><b>${c[1]}</b><small>PHOTO</small></div></div>`;
+}
+
+function showOverview(){
+  mks.forEach((m,i)=>m.setIcon(mkIcon(i,false)));
+  let rows=C.map((c,i)=>`
+    <li onclick="showDetail(${i})">
+      <span class="c-num ${i===0?'s':''} ${i===C.length-1?'g':''}">${i===0?'S':(i===C.length-1?'G':i+1)}</span>
+      <span class="c-body"><span class="c-name">${c[0]}</span><span class="c-arch">${c[1]}・${c[3]}</span></span>
+      <span class="c-leg">${i===0?'START':'+'+c[4].toFixed(2)+'km'}</span>
+    </li>`).join("");
+  panel.innerHTML=`
+    <p class="eyebrow">Course Overview</p>
+    <div class="ov-total">${TOTAL}<small> km</small></div>
+    <div class="ov-sub">建築 ${C.length}スポット ／ 国立競技場 → 東京駅</div>
+    <ul class="clist">${rows}</ul>`;
+  panel.scrollTop=0;
+}
+
+function showDetail(i){
+  const c=C[i];
+  mks.forEach((m,k)=>m.setIcon(mkIcon(k,k===i)));
+  map.panTo([c[5],c[6]]);
+  const links=c[8].length?`<div class="d-links">${c[8].map(l=>`<a href="${l[1]}" target="_blank">${l[0]} ↗</a>`).join("")}</div>`:"";
+  panel.innerHTML=`
+    <button class="back" onclick="showOverview()">← コース一覧へ戻る</button>
+    ${photoBlock(c)}
+    <div class="d-top"><span class="d-num">${i===0?'S':(i===C.length-1?'G':i+1)}</span>
+      <span class="d-area">${c[3]}${i>0?' ・ +'+c[4].toFixed(2)+'km':' ・ START'}</span></div>
+    <div class="d-name">${c[0]}</div>
+    <div class="d-arch"><b>${c[1]}</b> ／ ${c[2]}</div>
+    <p class="d-desc">${c[7]}</p>
+    ${links}`;
+  panel.scrollTop=0;
+}
+
+showOverview();
+</script>
+</body>
+</html>

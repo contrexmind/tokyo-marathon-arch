@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>東京マラソン×名建築 コース計画マップ</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root { --ink:#1a1a1a; --muted:#777; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif; color:var(--ink); }
+  #app { position:relative; height:100%; }
+  #map { position:absolute; inset:0; width:100%; height:100%; z-index:1; }
+  #side { position:absolute; left:0; top:0; bottom:0; width:320px; z-index:1000; box-sizing:border-box;
+          background:#fff; padding:20px; overflow-y:auto; box-shadow:2px 0 14px rgba(0,0,0,.14); }
+  h1 { font-size:17px; line-height:1.4; margin:0 0 4px; letter-spacing:.02em; }
+  .sub { font-size:12px; color:var(--muted); margin:0 0 18px; }
+  .legend { font-size:13px; line-height:2; }
+  .dot { display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:8px; vertical-align:-1px; }
+  .count { color:var(--muted); font-size:11px; }
+  .note { font-size:11px; color:var(--muted); margin-top:18px; line-height:1.6; border-top:1px solid #eee; padding-top:14px; }
+  .leaflet-popup-content { font-size:13px; line-height:1.55; margin:12px 14px; }
+  .leaflet-popup-content b { font-size:14px; }
+  .pop-arch { color:#555; }
+  .pop-area { color:#999; font-size:11px; }
+  .pop-links a { display:inline-block; margin-right:8px; margin-top:6px; font-size:12px; text-decoration:none; padding:2px 8px; border:1px solid #ddd; border-radius:20px; color:#333; }
+  .pop-fes { margin-top:6px; font-size:11px; color:#9333ea; }
+  /* pins */
+  .pin-dot { width:14px; height:14px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px rgba(0,0,0,.15); cursor:pointer; }
+  .pin-big { width:18px; height:18px; }
+  .pin-star { font-size:24px; line-height:1; text-shadow:0 1px 3px rgba(0,0,0,.4); cursor:pointer; position:relative; }
+  .pin-star .seq { position:absolute; top:-5px; right:-9px; background:#111; color:#fff; font-size:10px; font-weight:bold; border-radius:10px; padding:1px 5px; }
+  /* course box */
+  #coursebox { border:1px solid #eee; border-radius:10px; padding:12px; margin-bottom:18px; background:#fafafa; }
+  .cb-head { display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:bold; margin-bottom:8px; }
+  #clear { font-size:11px; border:1px solid #ddd; background:#fff; border-radius:6px; padding:3px 8px; cursor:pointer; }
+  #dist .big { font-size:30px; font-weight:bold; letter-spacing:-.02em; }
+  #dist .big small { font-size:14px; font-weight:normal; }
+  #dist .sub2 { font-size:11px; color:#999; margin-bottom:6px; }
+  #course .empty { font-size:12px; color:#aaa; text-align:center; line-height:1.6; padding:12px 0; }
+  #clist { list-style:none; margin:6px 0 0; padding:0; }
+  #clist li { display:flex; align-items:center; gap:7px; padding:5px 4px; border-radius:6px; font-size:12px; cursor:grab; }
+  #clist li:hover { background:#f0f0f0; }
+  #clist li.dragging { opacity:.4; }
+  .seq2 { flex:0 0 18px; width:18px; height:18px; border-radius:50%; color:#fff; font-size:11px; font-weight:bold; display:flex; align-items:center; justify-content:center; }
+  .nm { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
+  .leg { color:#888; font-size:10px; flex:0 0 auto; }
+  .rm { border:none; background:none; color:#c00; font-size:15px; cursor:pointer; padding:0 2px; line-height:1; }
+  .ord { display:flex; flex-direction:column; line-height:.8; flex:0 0 auto; }
+  .ord button { border:none; background:none; cursor:pointer; font-size:10px; color:#999; padding:0; }
+  .ord button:hover { color:#111; }
+  @media(max-width:680px){ #side{ width:84%; max-width:320px; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="side">
+    <h1>東京マラソン×名建築<br>コース計画マップ</h1>
+    <p class="sub">ピンをクリック → ★でコースに追加。距離が自動計算されます。</p>
+    <div id="coursebox">
+      <div class="cb-head"><span>🏃 選んだコース</span><button id="clear">クリア</button></div>
+      <div id="dist"></div>
+      <div id="course"></div>
+    </div>
+    <div class="legend">
+      <div><span class="dot" style="background:#16a34a"></span>スタート候補</div>
+      <div><span class="dot" style="background:#111827"></span>ゴール（東京駅）</div>
+      <div><span class="dot" style="background:#d97706"></span>名建築・重文・巨匠作 <span class="count" id="c-landmark"></span></div>
+      <div><span class="dot" style="background:#2563eb"></span>媒体掲載の現代建築 <span class="count" id="c-media"></span></div>
+      <div><span class="dot" style="background:#9333ea"></span>東京建築祭2026 公開 <span class="count" id="c-festival"></span></div>
+      <div><span class="dot" style="background:#dc2626"></span>隈研吾 作品（コース外含む）<span class="count" id="c-kuma"></span></div>
+    </div>
+    <div class="note">
+      点線＝東京マラソン実コース（概略）。<br>
+      📐Tecture Mag ／ 📕Casa Brutus ／ 📘Brutus が記事リンクです。<br>
+      ※座標は概算。コース確定後に微調整します。
+    </div>
+  </div>
+  <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// [lat, lng, name, architect, area, category, [[label,url],...], festivalNote]
+const P = [
+  // --- スタート / ゴール ---
+  [35.6777,139.7146,"国立競技場","隈研吾","神宮外苑","start",[["📐","https://mag.tecture.jp/culture/20210721-34629/"],["📕","https://casabrutus.com/categories/architecture/109960"]]],
+  [35.6896,139.6917,"東京都庁","丹下健三","新宿","start",[]],
+  [35.6812,139.7671,"東京駅 丸の内駅舎","辰野金吾（重文）","丸の内","goal",[]],
+  // --- 神宮外苑 ---
+  [35.6804,139.7118,"東京体育館","槇文彦","神宮外苑","landmark",[]],
+  [35.6675,139.7020,"代々木第一体育館","丹下健三","代々木","landmark",[]],
+  [35.6797,139.7290,"迎賓館赤坂離宮","片山東熊（国宝）","元赤坂","landmark",[]],
+  // --- 虎ノ門・麻布台・芝 ---
+  [35.6668,139.7490,"虎ノ門ヒルズ ステーションタワー","OMA／重松象平","虎ノ門","media",[["📐","https://mag.tecture.jp/culture/20231114-toranomon-hills-station-tower/"]]],
+  [35.6595,139.7410,"麻布台ヒルズ","ヘザウィック・スタジオ","麻布台","media",[["📐","https://mag.tecture.jp/culture/20231124-azabudai-hills/"],["📕","https://casabrutus.com/categories/architecture/370229"]]],
+  [35.6586,139.7454,"東京タワー","日建設計／内藤多仲","芝","landmark",[]],
+  [35.6575,139.7480,"増上寺","—","芝","landmark",[]],
+  [35.6678,139.7456,"The Okura Tokyo","谷口吉生","虎ノ門","landmark",[]],
+  // --- 日比谷 ---
+  [35.6735,139.7596,"日生劇場","村野藤吾","日比谷","landmark",[]],
+  [35.6772,139.7637,"東京国際フォーラム","ラファエル・ヴィニオリ","有楽町","landmark",[]],
+  [35.6740,139.7600,"東京ミッドタウン日比谷","ホプキンス／日建設計","日比谷","landmark",[]],
+  [35.6720,139.7585,"帝国ホテル東京","—（茶室公開）","内幸町","festival",[],"建築祭2026 茶室見学ツアー"],
+  // --- 銀座・築地 ---
+  [35.6713,139.7648,"銀座メゾンエルメス","レンゾ・ピアノ","銀座","media",[["📕","https://casabrutus.com/data/architectures/313049"]]],
+  [35.6738,139.7650,"ポーラ 銀座旗艦店","妹島和世","銀座","media",[["📕","https://casabrutus.com/categories/architecture/479907"]]],
+  [35.6705,139.7642,"ティファニー 銀座","青木淳／ピーター・マリノ","銀座","media",[["📐","https://mag.tecture.jp/culture/20250306-124915/"]]],
+  [35.6712,139.7652,"カルティエ 銀座","—","銀座","media",[["📕","https://casabrutus.com/categories/design/473196"]]],
+  [35.6716,139.7637,"Ginza Sony Park","—","銀座","media",[["📐","https://mag.tecture.jp/event/20240828-116528/"],["📕","https://casabrutus.com/categories/architecture/439255"]]],
+  [35.6692,139.7620,"静岡新聞・静岡放送ビル","丹下健三","銀座","landmark",[]],
+  [35.6728,139.7648,"ミキモト銀座2","伊東豊雄","銀座","landmark",[]],
+  [35.6720,139.7665,"ニコラス・G・ハイエックセンター","坂茂","銀座","landmark",[]],
+  [35.6694,139.7682,"歌舞伎座","隈研吾／三菱地所","銀座","kuma",[],"建築祭2026 屋上庭園ツアー"],
+  [35.6717,139.7665,"和光（SEIKO HOUSE）","渡辺仁","銀座","landmark",[["📐","https://mag.tecture.jp/business/20211218-48410/"]]],
+  [35.6755,139.7690,"旧宮脇ビル","—","京橋","festival",[],"建築祭2026 特別公開"],
+  [35.6664,139.7717,"築地本願寺","伊東忠太","築地","landmark",[["📘","https://brutus.jp/post-145747/"]]],
+  [35.6680,139.7700,"カトリック築地教会","—","築地","festival",[],"建築祭2026 特別公開"],
+  // --- 日本橋・兜町・京橋 ---
+  [35.6868,139.7707,"TOKYO TORCH／常盤橋","藤本壮介・永山祐子","日本橋","media",[["📐","https://mag.tecture.jp/culture/20200921-14135/"]]],
+  [35.6815,139.7772,"K5（旧第一銀行別館）","Claesson Koivisto Rune","兜町","media",[["📕","https://casabrutus.com/categories/food/137693"]]],
+  [35.6816,139.7766,"日証館（teal）","横河工務所","兜町","media",[["📐","https://mag.tecture.jp/culture/20211031-44211/"]],"建築祭2026 特別公開"],
+  [35.6862,139.7716,"日本銀行 本店","辰野金吾（重文）","日本橋","landmark",[]],
+  [35.6857,139.7735,"三井本館","トローブリッジ＆リヴィングストン（重文）","日本橋","landmark",[],"建築祭2026 金庫見学ツアー"],
+  [35.6852,139.7740,"日本橋三越本店","横河民輔ほか（重文）","日本橋","landmark",[],"建築祭2026 百貨店建築ツアー"],
+  [35.6837,139.7740,"日本橋（石造二連アーチ）","妻木頼黄（重文）","日本橋","landmark",[]],
+  [35.6800,139.7768,"日本橋髙島屋S.C.","高橋貞太郎（重文）","日本橋","landmark",[]],
+  [35.6920,139.7702,"丸石ビルディング","山下寿郎","神田","festival",[],"建築祭2026 近世ロマネスク看板建築"],
+  [35.6865,139.7730,"常盤小学校","—","日本橋","festival",[],"建築祭2026 特別公開"],
+  [35.6905,139.7790,"江戸屋","—","大伝馬町","festival",[],"建築祭2026 アールデコ看板建築"],
+  [35.6868,139.7895,"HAMACHO HOTEL","—","浜町","festival",[],"建築祭2026 特別公開"],
+  // --- 両国・清澄白河・蔵前・門前仲町 ---
+  [35.6962,139.7965,"すみだ北斎美術館","妹島和世／SANAA","両国","landmark",[]],
+  [35.6967,139.7937,"江戸東京博物館","菊竹清訓","両国","landmark",[]],
+  [35.6970,139.7933,"両国国技館","—","両国","landmark",[]],
+  [35.6957,139.7902,"両国湯屋 江戸遊","久保都島建築設計事務所","両国","media",[["📐","https://mag.tecture.jp/project/20220331-ryogoku-yuya-edoyu/"]]],
+  [35.6800,139.8060,"東京都現代美術館（MOT）","柳澤孝彦","清澄白河","landmark",[]],
+  [35.6815,139.8000,"ブルーボトル 清澄白河","長坂常／スキーマ","清澄白河","media",[["📐","https://mag.tecture.jp/feature/20210714-tecture-cafe-map-vol1-tokyo/"],["📕","https://casabrutus.com/posts/308243"]]],
+  [35.7045,139.7918,"ダンデライオン・チョコレート 蔵前","加藤匡毅／Puddle","蔵前","media",[["📐","https://mag.tecture.jp/feature/20210714-tecture-cafe-map-vol1-tokyo/"]]],
+  [35.6720,139.7985,"富岡八幡宮","—","門前仲町","landmark",[]],
+  // --- 浅草・上野 ---
+  [35.7106,139.7958,"浅草文化観光センター","隈研吾","浅草","kuma",[["📐","https://mag.tecture.jp/product/20220113-49641/"]]],
+  [35.7112,139.7962,"ナインアワーズ浅草","平田晃久","浅草","media",[["📕","https://casabrutus.com/categories/architecture/85250"]]],
+  [35.7156,139.7757,"国立西洋美術館","ル・コルビュジエ（世界遺産）","上野","landmark",[["📐","https://mag.tecture.jp/culture/20230704-92869/"],["📘","https://brutus.jp/post-145747/"]]],
+  [35.7185,139.7708,"東京藝大 Takiプラザ","隈研吾","上野","kuma",[["📐","https://mag.tecture.jp/culture/20221216-taki-plaza/"]]],
+  // --- 丸の内・八重洲（ゴール周辺）---
+  [35.6792,139.7635,"明治生命館","岡田信一郎（重文）","丸の内","landmark",[],"建築祭2026 特別公開"],
+  [35.6790,139.7645,"三菱一号館","ジョサイア・コンドル（復元）","丸の内","landmark",[],"建築祭2026 復元プロセス解説"],
+  [35.6797,139.7651,"KITTE／JPタワー（旧東京中央郵便局）","吉田鉄郎／隈研吾改修","丸の内","media",[],"建築祭2026 特別公開"],
+  [35.6790,139.7640,"新東京ビルヂング","三菱地所","丸の内","festival",[],"建築祭2026 特別公開"],
+  [35.6810,139.7625,"新・東京海上ビル","レンゾ・ピアノ／RPBW","丸の内","media",[["📐","https://mag.tecture.jp/culture/20220802-68316/"]]],
+  [35.6755,139.7615,"丸の内3-1（帝劇・国際ビル建替）","小堀哲夫／三菱地所設計","丸の内","media",[["📐","https://mag.tecture.jp/culture/20241220-121666/"]]],
+  [35.6790,139.7710,"東京ミッドタウン八重洲","ピックフォード／日本設計","八重洲","landmark",[]],
+  [35.6790,139.7708,"八重洲ダイビル","—","八重洲","festival",[],"建築祭2026 特別公開"],
+  // --- 新宿（A案スタート周辺）---
+  [35.6905,139.6985,"新宿駅西口地区開発","—","新宿","media",[["📐","https://mag.tecture.jp/culture/20240401-109064/"]]],
+  [35.6948,139.7015,"東急歌舞伎町タワー","永山祐子ほか","新宿","media",[["📐","https://mag.tecture.jp/culture/20220507-60057/"]]],
+  [35.6905,139.6940,"新宿住友ビル 三角広場","日建設計","新宿","media",[["📐","https://mag.tecture.jp/culture/20200709-9541/"]]],
+  // --- kenchiku-pers.com 追加（コース回廊の名建築のみ抽出）---
+  [35.6727,139.7690,"G.Itoya（伊東屋）","泰成建設","銀座","landmark",[]],
+  [35.6716,139.7647,"GINZA PLACE","クライン・ダイサム","銀座","landmark",[]],
+  [35.6688,139.7615,"東京銀座資生堂ビル","リカルド・ボフィル","銀座","landmark",[]],
+  [35.6714,139.7628,"東急プラザ銀座","日建設計","銀座","landmark",[]],
+  [35.6710,139.7656,"教文館ビル","アントニン・レーモンド","銀座","landmark",[]],
+  [35.6685,139.7622,"中銀カプセルタワー","黒川紀章","銀座","landmark",[],"2022年解体（歴史として紹介）"],
+  [35.6668,139.7705,"築地KYビル","隈研吾","築地","kuma",[]],
+  [35.6802,139.7748,"東京日本橋タワー","日建設計","日本橋","landmark",[]],
+  [35.6742,139.7616,"ザ・ペニンシュラ東京","三菱地所設計","日比谷","landmark",[]],
+  [35.6816,139.7642,"新丸ビル","三菱地所","丸の内","landmark",[]],
+  [35.6356,139.7407,"高輪ゲートウェイ駅","隈研吾","高輪","kuma",[]],
+  [35.6362,139.7402,"MoN Takanawa","隈研吾","高輪","kuma",[]],
+  [35.7148,139.7745,"東京文化会館","前川國男","上野","landmark",[]],
+  [35.7185,139.7740,"国際子ども図書館","安藤忠雄","上野","landmark",[]],
+  [35.6968,139.7945,"刀剣博物館","槇文彦","両国","landmark",[]],
+  // --- 隈研吾 作品（コース外の東京代表作）---
+  [35.6627,139.7170,"根津美術館","隈研吾","南青山","kuma",[]],
+  [35.6648,139.7188,"サニーヒルズ南青山","隈研吾","南青山","kuma",[]],
+  [35.6662,139.7082,"One表参道","隈研吾","表参道","kuma",[]],
+  [35.6452,139.6990,"スタバ リザーブ ロースタリー 東京","隈研吾","中目黒","kuma",[]],
+  [35.7158,139.7620,"東大 ダイワユビキタス学術研究館","隈研吾","本郷","kuma",[]],
+  [35.7032,139.7378,"la kagu","隈研吾","神楽坂","kuma",[]],
+  [35.6225,139.7508,"PIGMENT TOKYO","隈研吾","天王洲","kuma",[]],
+  [35.6730,139.7665,"東京エディション銀座","隈研吾","銀座","kuma",[["📐","https://mag.tecture.jp/culture/20231227-104719/"]]],
+  [35.6707,139.7648,"銀座 かやのや","隈研吾","銀座","kuma",[]],
+];
+
+// 東京マラソン 実コース（概略）
+const ROUTE = [
+  [35.6896,139.6917],[35.6925,139.6995],[35.6918,139.7355],[35.7020,139.7450],
+  [35.6958,139.7575],[35.6918,139.7710],[35.6837,139.7740],[35.7050,139.7920],
+  [35.7110,139.7960],[35.6960,139.7930],[35.6815,139.8000],[35.6720,139.7980],
+  [35.6837,139.7740],[35.6717,139.7660],[35.6455,139.7475],[35.6575,139.7480],
+  [35.6740,139.7600],[35.6812,139.7671]
+];
+
+const COLORS = { start:"#16a34a", goal:"#111827", landmark:"#d97706", media:"#2563eb", festival:"#9333ea", kuma:"#dc2626" };
+
+const map = L.map("map", { zoomControl:false }).setView([35.682,139.762], 13);
+L.control.zoom({ position:"topright" }).addTo(map);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+  attribution:'&copy; OpenStreetMap &copy; CARTO', subdomains:"abcd", maxZoom:19
+}).addTo(map);
+
+L.polyline(ROUTE, { color:"#bbb", weight:3, dashArray:"6,8", opacity:.9 }).addTo(map);
+
+const counts = { landmark:0, media:0, festival:0, kuma:0 };
+const bounds = [];
+const markers = [];     // {idx, m, cat, name, lat, lng}
+const selected = [];    // ordered idx list
+
+function dotIcon(cat, big){
+  return L.divIcon({ className:"", iconSize:big?[18,18]:[14,14], iconAnchor:big?[9,9]:[7,7],
+    html:`<div class="pin pin-dot ${big?'pin-big':''}" style="background:${COLORS[cat]}"></div>` });
+}
+function starIcon(cat, seq){
+  return L.divIcon({ className:"", iconSize:[28,28], iconAnchor:[14,14],
+    html:`<div class="pin pin-star" style="color:${COLORS[cat]}">★<span class="seq">${seq}</span></div>` });
+}
+
+P.forEach((p, idx) => {
+  const [lat,lng,name,arch,area,cat,links,fes] = p;
+  if (counts[cat] !== undefined) counts[cat]++;
+  bounds.push([lat,lng]);
+  const big = (cat==="start"||cat==="goal");
+  const m = L.marker([lat,lng], { icon: dotIcon(cat, big) }).addTo(map);
+  let html = `<b>${name}</b><br><span class="pop-arch">${arch}</span><br><span class="pop-area">${area}</span>`;
+  if (links && links.length) {
+    html += `<div class="pop-links">` + links.map(l=>`<a href="${l[1]}" target="_blank">${l[0]} 記事</a>`).join("") + `</div>`;
+  }
+  if (fes) html += `<div class="pop-fes">🎪 ${fes}</div>`;
+  m.bindPopup(html);
+  m.on("click", ()=> toggle(idx));
+  markers.push({ idx, m, cat, name, lat, lng, big });
+});
+
+function toggle(idx){
+  const pos = selected.indexOf(idx);
+  if (pos === -1) selected.push(idx); else selected.splice(pos,1);
+  refresh();
+}
+
+function haversine(a,b){
+  const R=6371000, toR=x=>x*Math.PI/180;
+  const dLat=toR(b.lat-a.lat), dLng=toR(b.lng-a.lng);
+  const s=Math.sin(dLat/2)**2 + Math.cos(toR(a.lat))*Math.cos(toR(b.lat))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+
+let courseLine = null;
+function refresh(){
+  markers.forEach(o=>{
+    const seq = selected.indexOf(o.idx);
+    o.m.setIcon(seq===-1 ? dotIcon(o.cat, o.big) : starIcon(o.cat, seq+1));
+    o.m.setZIndexOffset(seq===-1 ? 0 : 1000);
+  });
+  const latlngs = selected.map(i=>{ const o=markers.find(m=>m.idx===i); return [o.lat,o.lng]; });
+  if (courseLine){ courseLine.remove(); courseLine=null; }
+  if (latlngs.length>=2) courseLine = L.polyline(latlngs, {color:"#e11d2c", weight:4, opacity:.85}).addTo(map);
+  renderList();
+}
+
+function renderList(){
+  const wrap = document.getElementById("course");
+  const dist = document.getElementById("dist");
+  if (!selected.length){
+    wrap.innerHTML = '<p class="empty">ピンをクリックして<br>コースに追加してください</p>';
+    dist.innerHTML = ""; return;
+  }
+  let total=0, rows="";
+  selected.forEach((idx,i)=>{
+    const o = markers.find(m=>m.idx===idx);
+    let leg=0;
+    if (i>0){ const prev=markers.find(m=>m.idx===selected[i-1]); leg=haversine(prev,o); total+=leg; }
+    rows += `<li draggable="true" data-i="${i}">
+      <span class="seq2" style="background:${COLORS[o.cat]}">${i+1}</span>
+      <span class="nm">${o.name}</span>
+      <span class="leg">${i>0?('+'+(leg/1000).toFixed(2)+'km'):'START'}</span>
+      <span class="ord"><button class="up" data-i="${i}">▲</button><button class="dn" data-i="${i}">▼</button></span>
+      <button class="rm" data-idx="${idx}">×</button></li>`;
+  });
+  wrap.innerHTML = `<ol id="clist">${rows}</ol>`;
+  const walk = total*1.25;
+  dist.innerHTML = `<div class="big">${(walk/1000).toFixed(1)} <small>km</small></div>
+     <div class="sub2">直線 ${(total/1000).toFixed(1)}km × 道路係数1.25 ／ ${selected.length}スポット</div>`;
+  bindList();
+}
+
+function bindList(){
+  document.querySelectorAll(".rm").forEach(b=>{
+    b.onclick=(e)=>{ e.stopPropagation(); toggle(parseInt(b.dataset.idx)); };
+  });
+  document.querySelectorAll("#clist .nm").forEach((el,k)=>{
+    el.onclick=()=>{ const o=markers.find(m=>m.idx===selected[k]); map.panTo([o.lat,o.lng]); o.m.openPopup(); };
+  });
+  document.querySelectorAll(".up").forEach(b=>{
+    b.onclick=(e)=>{ e.stopPropagation(); const i=parseInt(b.dataset.i);
+      if(i>0){ [selected[i-1],selected[i]]=[selected[i],selected[i-1]]; refresh(); } };
+  });
+  document.querySelectorAll(".dn").forEach(b=>{
+    b.onclick=(e)=>{ e.stopPropagation(); const i=parseInt(b.dataset.i);
+      if(i<selected.length-1){ [selected[i+1],selected[i]]=[selected[i],selected[i+1]]; refresh(); } };
+  });
+  let dragI=null;
+  document.querySelectorAll("#clist li").forEach(li=>{
+    li.addEventListener("dragstart",()=>{ dragI=parseInt(li.dataset.i); li.classList.add("dragging"); });
+    li.addEventListener("dragend",()=>{ li.classList.remove("dragging"); });
+    li.addEventListener("dragover",e=>e.preventDefault());
+    li.addEventListener("drop",e=>{
+      e.preventDefault();
+      const dropI=parseInt(li.dataset.i);
+      if (dragI===null || dragI===dropI) return;
+      const it=selected.splice(dragI,1)[0];
+      selected.splice(dropI,0,it);
+      refresh();
+    });
+  });
+}
+
+document.getElementById("clear").onclick = ()=>{ selected.length=0; refresh(); };
+
+document.getElementById("c-landmark").textContent = `(${counts.landmark})`;
+document.getElementById("c-media").textContent = `(${counts.media})`;
+document.getElementById("c-festival").textContent = `(${counts.festival})`;
+document.getElementById("c-kuma").textContent = `(${counts.kuma})`;
+map.fitBounds(bounds, { padding:[40,40] });
+refresh();
+</script>
+</body>
+</html>
