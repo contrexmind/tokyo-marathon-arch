@@ -30,11 +30,11 @@
   .hero .meta .v{ font-size:23px; font-weight:700; }
   .scroll{ position:absolute; bottom:26px; left:50%; transform:translateX(-50%);
     font-size:11px; letter-spacing:.2em; color:var(--muted); }
-  /* hero carousel background */
+  /* hero slide carousel background */
   .marquee{ position:absolute; inset:0; z-index:0; overflow:hidden; }
   .marquee::after{ content:""; position:absolute; inset:0; z-index:2; background:rgba(16,16,20,.52); }
-  .marquee img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; transition:opacity 1.4s ease; z-index:1; }
-  .marquee img.on{ opacity:1; }
+  .car-track{ display:flex; height:100%; width:max-content; z-index:1; }
+  .car-track img{ flex:0 0 100vw; width:100vw; height:100%; object-fit:cover; display:block; }
   /* hero text over photo */
   .hero h1{ color:#fff; }
   .hero .eyebrow{ color:rgba(255,255,255,.72); }
@@ -292,10 +292,17 @@ function showDetail(i){
 
 const mq=document.getElementById("mqTrack");
 if(mq){
-  const pics=C.filter(c=>c[9]);
-  mq.innerHTML=pics.map((c,i)=>`<img src="${c[9]}" alt="${c[0]}" class="${i===0?'on':''}" onerror="this.remove()">`).join("");
-  const slides=mq.querySelectorAll("img");
-  if(slides.length>1){ let k=0; setInterval(()=>{ slides[k].classList.remove("on"); k=(k+1)%slides.length; slides[k].classList.add("on"); },4500); }
+  const pics=C.filter(c=>c[9] && c[0]!=="国立競技場");
+  const imgs=pics.map(c=>`<img src="${c[9]}" alt="${c[0]}">`).join("");
+  const clone=pics.length?`<img src="${pics[0][9]}" alt="">`:"";
+  mq.innerHTML=`<div class="car-track" id="carTrack">${imgs}${clone}</div>`;
+  const track=document.getElementById("carTrack"), n=pics.length;
+  if(n>1){ let k=0;
+    setInterval(()=>{
+      k++; track.style.transition="transform .7s ease"; track.style.transform=`translateX(-${k*100}vw)`;
+      if(k===n){ setTimeout(()=>{ track.style.transition="none"; k=0; track.style.transform="translateX(0)"; },720); }
+    },3000);
+  }
 }
 showOverview();
 </script>
