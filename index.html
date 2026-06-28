@@ -19,8 +19,8 @@
 
   /* HERO */
   .hero{ min-height:100vh; display:flex; flex-direction:column; justify-content:center;
-    border-bottom:1px solid var(--line); position:relative; }
-  .hero .wrap{ width:100%; }
+    border-bottom:1px solid var(--line); position:relative; overflow:hidden; }
+  .hero .wrap{ width:100%; position:relative; z-index:2; }
   .hero h1{ font-size:clamp(40px,8vw,104px); line-height:1.04; margin:0; letter-spacing:-.01em; font-weight:800; }
   .hero h1 .accent{ color:var(--accent); }
   .hero .lead{ font-size:clamp(15px,1.6vw,19px); color:#444; margin:28px 0 0; max-width:640px; }
@@ -30,14 +30,20 @@
   .hero .meta .v{ font-size:23px; font-weight:700; }
   .scroll{ position:absolute; bottom:26px; left:50%; transform:translateX(-50%);
     font-size:11px; letter-spacing:.2em; color:var(--muted); }
-  /* marquee */
-  .marquee{ width:100%; overflow:hidden; margin-top:46px;
-    -webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);
-    mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent); }
-  .marquee-track{ display:flex; gap:14px; width:max-content; animation:mq 45s linear infinite; }
+  /* marquee = hero background */
+  .marquee{ position:absolute; inset:0; z-index:0; overflow:hidden; display:flex; align-items:center; }
+  .marquee::after{ content:""; position:absolute; inset:0; z-index:1; background:rgba(16,16,20,.52); }
+  .marquee-track{ display:flex; gap:6px; height:100%; align-items:center; width:max-content; animation:mq 60s linear infinite; }
   .marquee:hover .marquee-track{ animation-play-state:paused; }
-  .marquee-track img{ height:165px; width:auto; border-radius:8px; object-fit:cover; display:block; }
+  .marquee-track img{ height:100%; width:auto; object-fit:cover; display:block; }
   @keyframes mq{ from{transform:translateX(0)} to{transform:translateX(-50%)} }
+  /* hero text over photo */
+  .hero h1{ color:#fff; }
+  .hero .eyebrow{ color:rgba(255,255,255,.72); }
+  .hero .lead{ color:rgba(255,255,255,.92); }
+  .hero .meta .k{ color:rgba(255,255,255,.7); }
+  .hero .meta .v{ color:#fff; }
+  .scroll{ z-index:2; color:rgba(255,255,255,.85); }
 
   /* SECTION */
   section{ padding:96px 0; border-bottom:1px solid var(--line); }
