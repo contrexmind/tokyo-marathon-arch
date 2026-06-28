@@ -30,6 +30,14 @@
   .hero .meta .v{ font-size:23px; font-weight:700; }
   .scroll{ position:absolute; bottom:26px; left:50%; transform:translateX(-50%);
     font-size:11px; letter-spacing:.2em; color:var(--muted); }
+  /* marquee */
+  .marquee{ width:100%; overflow:hidden; margin-top:46px;
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);
+    mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent); }
+  .marquee-track{ display:flex; gap:14px; width:max-content; animation:mq 45s linear infinite; }
+  .marquee:hover .marquee-track{ animation-play-state:paused; }
+  .marquee-track img{ height:165px; width:auto; border-radius:8px; object-fit:cover; display:block; }
+  @keyframes mq{ from{transform:translateX(0)} to{transform:translateX(-50%)} }
 
   /* SECTION */
   section{ padding:96px 0; border-bottom:1px solid var(--line); }
@@ -125,6 +133,7 @@
       <div><span class="k">START → GOAL</span><span class="v">国立競技場 → 東京駅</span></div>
     </div>
   </div>
+  <div class="marquee"><div class="marquee-track" id="mqTrack"></div></div>
   <div class="scroll">SCROLL ↓</div>
 </header>
 
@@ -277,6 +286,8 @@ function showDetail(i){
   panel.scrollTop=0;
 }
 
+const mq=document.getElementById("mqTrack");
+if(mq){ const imgs=C.filter(c=>c[9]).map(c=>`<img src="${c[9]}" alt="${c[0]}" loading="lazy" onerror="this.style.display='none'">`).join(""); mq.innerHTML=imgs+imgs; }
 showOverview();
 </script>
 </body>
